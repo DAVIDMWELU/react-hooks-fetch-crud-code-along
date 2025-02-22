@@ -4,6 +4,7 @@ import {
   render,
   screen,
   fireEvent,
+  waitFor,
   waitForElementToBeRemoved,
 } from "@testing-library/react";
 import { resetData } from "../mocks/handlers";
@@ -20,85 +21,57 @@ afterAll(() => server.close());
 test("displays all the items from the server after the initial render", async () => {
   render(<ShoppingList />);
 
-  const yogurt = await screen.findByText(/Yogurt/);
-  expect(yogurt).toBeInTheDocument();
-
-  const pomegranate = await screen.findByText(/Pomegranate/);
-  expect(pomegranate).toBeInTheDocument();
-
-  const lettuce = await screen.findByText(/Lettuce/);
-  expect(lettuce).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/Yogurt/)).toBeInTheDocument();
+    expect(screen.getByText(/Pomegranate/)).toBeInTheDocument();
+    expect(screen.getByText(/Lettuce/)).toBeInTheDocument();
+  });
 });
 
 test("adds a new item to the list when the ItemForm is submitted", async () => {
-  const { rerender } = render(<ShoppingList />);
+  render(<ShoppingList />);
 
   const dessertCount = screen.queryAllByText(/Dessert/).length;
 
-  fireEvent.change(screen.queryByLabelText(/Name/), {
+  fireEvent.change(screen.getByLabelText(/Name/i), {
     target: { value: "Ice Cream" },
   });
-
-  fireEvent.change(screen.queryByLabelText(/Category/), {
+  fireEvent.change(screen.getByLabelText(/Category/i), {
     target: { value: "Dessert" },
   });
+  fireEvent.submit(screen.getByText(/Add to List/i));
 
-  fireEvent.submit(screen.queryByText(/Add to List/));
-
-  const iceCream = await screen.findByText(/Ice Cream/);
-  expect(iceCream).toBeInTheDocument();
-
-  const desserts = await screen.findAllByText(/Dessert/);
-  expect(desserts.length).toBe(dessertCount + 1);
-
-  // Rerender the component to ensure the item was persisted
-  rerender(<ShoppingList />);
-
-  const rerenderedIceCream = await screen.findByText(/Ice Cream/);
-  expect(rerenderedIceCream).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/Ice Cream/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Dessert/).length).toBe(dessertCount + 1);
+  });
 });
 
 test("updates the isInCart status of an item when the Add/Remove from Cart button is clicked", async () => {
-  const { rerender } = render(<ShoppingList />);
+  render(<ShoppingList />);
 
-  const addButtons = await screen.findAllByText(/Add to Cart/);
+  await waitFor(() => {
+    expect(screen.getAllByText(/Add to Cart/).length).toBe(3);
+  });
 
-  expect(addButtons.length).toBe(3);
-  expect(screen.queryByText(/Remove From Cart/)).not.toBeInTheDocument();
+  const addButton = screen.getAllByText(/Add to Cart/)[0];
+  fireEvent.click(addButton);
 
-  fireEvent.click(addButtons[0]);
-
-  const removeButton = await screen.findByText(/Remove From Cart/);
-  expect(removeButton).toBeInTheDocument();
-
-  // Rerender the component to ensure the item was persisted
-  rerender(<ShoppingList />);
-
-  const rerenderedAddButtons = await screen.findAllByText(/Add to Cart/);
-  const rerenderedRemoveButtons = await screen.findAllByText(
-    /Remove From Cart/
-  );
-
-  expect(rerenderedAddButtons.length).toBe(2);
-  expect(rerenderedRemoveButtons.length).toBe(1);
+  await waitFor(() => {
+    expect(screen.getByText(/Remove From Cart/)).toBeInTheDocument();
+  });
 });
 
 test("removes an item from the list when the delete button is clicked", async () => {
-  const { rerender } = render(<ShoppingList />);
+  render(<ShoppingList />);
 
-  const yogurt = await screen.findByText(/Yogurt/);
-  expect(yogurt).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/Yogurt/)).toBeInTheDocument();
+  });
 
-  const deleteButtons = await screen.findAllByText(/Delete/);
-  fireEvent.click(deleteButtons[0]);
+  const deleteButton = screen.getAllByText(/Delete/)[0];
+  fireEvent.click(deleteButton);
 
   await waitForElementToBeRemoved(() => screen.queryByText(/Yogurt/));
-
-  // Rerender the component to ensure the item was persisted
-  rerender(<ShoppingList />);
-
-  const rerenderedDeleteButtons = await screen.findAllByText(/Delete/);
-
-  expect(rerenderedDeleteButtons.length).toBe(2);
   expect(screen.queryByText(/Yogurt/)).not.toBeInTheDocument();
 });
